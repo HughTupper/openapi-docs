@@ -1,0 +1,105 @@
+Recommended Next Steps
+YAML Support - Add yaml parsing to accept .yaml/.yml files
+URL Loading - Add useApiSpec({ url: 'https://...' }) support
+Enhanced Search - Add useSearch() hook with advanced filtering
+Request Execution - Add useExecuteOperation() for interactive docs
+Code Snippets - Add useCodeSnippet(operation, language) utilities
+
+---
+
+1. YAML Support
+   ✅ Added js-yaml dependency
+   ✅ Updated parseOpenApi to accept JSON strings, YAML strings, or parsed objects
+   ✅ Full test coverage including YAML parsing
+   ✅ Graceful error handling for invalid formats
+2. URL Loading Support
+   ✅ Created useApiLoader hook with caching, retries, and error handling
+   ✅ Updated ApiProvider to support url prop for remote spec loading
+   ✅ Comprehensive test coverage for URL fetching scenarios
+   ✅ Cache management with clearSpecCache() and getCacheStats()
+3. Enhanced Search Hook
+   ✅ Created useSearch hook with advanced filtering capabilities
+   ✅ Multi-criteria filtering: methods, tags, deprecated status, parameters, request body, response codes
+   ✅ Text search with fuzzy matching and relevance scoring
+   ✅ useTextSearch convenience wrapper for simple search needs
+   ✅ Filter options discovery and clearing functionality
+
+---
+
+Currently Provided
+Spec loading / parsing
+✅ Accept OpenAPI document as object/string
+✅ Support OpenAPI 3.x parsing
+✅ Provide abstractions for retrieving schemas, paths, operations, parameters
+✅ Basic $ref resolution within document
+✅ Error handling for malformed specs
+Navigation / structure extraction
+✅ Extract tags from spec, map operations under tags
+✅ Generate structured navigation data
+✅ Provide hooks for navigation rendering (useEndpoints, useApiSpec)
+Schema/Model display logic
+✅ Data structures representing schemas with metadata
+✅ Basic schema utilities and type definitions
+Operation/Endpoint display logic
+✅ Complete data structures for endpoints (path, method, summary, parameters, responses)
+✅ Filtering by tag and search string
+✅ Headless components with render props (EndpointList, EndpointItem)
+UI/Display control
+✅ Headless architecture with render props
+✅ CSS className and style prop support
+✅ Component-level customization
+
+TODO List - High Priority (Fits headless pattern)
+
+1. Enhanced Spec Loading
+   YAML support - currently only accepts parsed JSON objects
+   URL loading - fetch specs from remote URLs
+   External $ref resolution - resolve references to other files
+   Multiple spec versions (OpenAPI 2.0 support)
+   Spec caching and validation
+2. Advanced Navigation
+   Custom ordering/sorting hooks for tags and operations
+   Slug/URL generation utilities for operations and tags
+   Navigation event hooks (onTagClick, onOperationClick, etc.)
+   Breadcrumb utilities
+3. Schema Enhancement
+   Nested schema expansion/collapse state management
+   Schema ordering utilities (required first, alphabetical, etc.)
+   Model reference resolution and linking
+   Schema validation utilities
+4. Search & Filtering
+   Advanced search hooks - search within operation descriptions, parameters
+   Multi-criteria filtering - by method, tag, parameter type
+   Search result ranking/relevance
+5. Request Execution Framework
+   useExecuteOperation hook for "Try it out" functionality
+   Security scheme configuration hooks
+   Request/response interceptor system
+   Credential management utilities
+
+TODO List - Medium Priority 6. Code Snippets
+Code generation utilities - curl, JavaScript, Python, etc.
+Custom snippet generator plugin system
+Request/response example extraction from spec 7. Performance & Large Specs
+Lazy loading utilities for large specs
+Async spec loading with loading states
+Virtual scrolling utilities for large endpoint lists 8. Multiple Documents
+Multi-spec management - handle v1 vs v2 APIs
+Document switching utilities and hooks
+Spec comparison utilities
+
+❌ Items to Rule Out (Don't fit headless pattern)
+Routing/Deep Linking
+❌ Hash routing, path routing - This is application-level concern, not library
+❌ URL state management - Consumer should handle with their router
+❌ Redirect handling - Application routing responsibility
+UI/Theming Specifics
+❌ Dark/light theme toggles - Consumer handles theme state
+❌ CSS customization systems - We provide className/style props instead
+❌ Layout configurations - Consumer controls layout completely
+Export/Download Features
+❌ Download spec functionality - This is application feature, not library
+❌ Static HTML generation - Outside scope of headless library
+Meta/SEO
+❌ Page title, meta tags - Application responsibility
+❌ Favicon management - Not library concern
