@@ -558,7 +558,7 @@ interface SecurityConfig {
     apiKey?: {
         name: string;
         value: string;
-        in: 'query' | 'header' | 'cookie';
+        in: "query" | "header" | "cookie";
     };
     /** Bearer token authentication */
     bearer?: {
@@ -679,16 +679,16 @@ interface CodeSnippetLanguage {
 }
 interface CodeSnippetOptions {
     /** Target language for code generation */
-    language: 'curl' | 'javascript' | 'typescript' | 'python' | 'node' | 'php' | 'java' | 'go';
+    language: "curl" | "javascript" | "typescript" | "python" | "node" | "php" | "java" | "go";
     /** Include authentication headers/setup */
     includeAuth?: boolean;
     /** Authentication configuration */
     auth?: {
-        type: 'apiKey' | 'bearer' | 'basic' | 'oauth2';
+        type: "apiKey" | "bearer" | "basic" | "oauth2";
         apiKey?: {
             name: string;
             value: string;
-            in: 'header' | 'query';
+            in: "header" | "query";
         };
         bearer?: {
             token: string;

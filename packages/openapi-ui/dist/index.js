@@ -822,174 +822,198 @@ function useExecuteOperation(config = {}) {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const abortControllerRef = useRef(null);
-  const buildUrl = useCallback((endpoint, params = {}) => {
-    let baseUrl = defaultConfig.baseUrl || config.defaultConfig?.baseUrl;
-    if (!baseUrl && spec?.servers && spec.servers.length > 0) {
-      baseUrl = spec.servers[0].url;
-    }
-    if (!baseUrl) {
-      throw new Error("No base URL available. Provide baseUrl in config or ensure OpenAPI spec has servers.");
-    }
-    let path = endpoint.path;
-    if (params.pathParams) {
-      for (const [key, value] of Object.entries(params.pathParams)) {
-        path = path.replace(`{${key}}`, encodeURIComponent(String(value)));
+  const buildUrl = useCallback(
+    (endpoint, params = {}) => {
+      let baseUrl = defaultConfig.baseUrl || config.defaultConfig?.baseUrl;
+      if (!baseUrl && spec?.servers && spec.servers.length > 0) {
+        baseUrl = spec.servers[0].url;
       }
-    }
-    const url = new URL(path, baseUrl);
-    if (params.queryParams) {
-      for (const [key, value] of Object.entries(params.queryParams)) {
-        if (Array.isArray(value)) {
-          value.forEach((v) => url.searchParams.append(key, String(v)));
-        } else {
-          url.searchParams.set(key, String(value));
+      if (!baseUrl) {
+        throw new Error(
+          "No base URL available. Provide baseUrl in config or ensure OpenAPI spec has servers."
+        );
+      }
+      let path = endpoint.path;
+      if (params.pathParams) {
+        for (const [key, value] of Object.entries(params.pathParams)) {
+          path = path.replace(`{${key}}`, encodeURIComponent(String(value)));
         }
       }
-    }
-    return url.toString();
-  }, [defaultConfig.baseUrl, config.defaultConfig?.baseUrl, spec?.servers]);
-  const applyAuthentication = useCallback((headers, security) => {
-    if (security.apiKey) {
-      if (security.apiKey.in === "header") {
-        headers.set(security.apiKey.name, security.apiKey.value);
-      }
-    }
-    if (security.bearer) {
-      headers.set("Authorization", `Bearer ${security.bearer.token}`);
-    }
-    if (security.basic) {
-      const encoded = btoa(`${security.basic.username}:${security.basic.password}`);
-      headers.set("Authorization", `Basic ${encoded}`);
-    }
-    if (security.oauth2) {
-      headers.set("Authorization", `Bearer ${security.oauth2.token}`);
-    }
-    if (security.custom) {
-      headers.set(security.custom.name, security.custom.value);
-    }
-  }, []);
-  const executeRequest = useCallback(async (endpoint, params = {}) => {
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    abortControllerRef.current = new AbortController();
-    let url = "";
-    let init = {};
-    try {
-      url = buildUrl(endpoint, params);
-      const security = { ...defaultSecurity, ...params.security };
-      if (security.apiKey?.in === "query") {
-        const urlObj = new URL(url);
-        urlObj.searchParams.set(security.apiKey.name, security.apiKey.value);
-        url = urlObj.toString();
-      }
-      const headers = new Headers();
-      if (defaultConfig.headers) {
-        Object.entries(defaultConfig.headers).forEach(([key, value]) => {
-          headers.set(key, value);
-        });
-      }
-      if (params.headers) {
-        Object.entries(params.headers).forEach(([key, value]) => {
-          headers.set(key, value);
-        });
-      }
-      if (security) {
-        applyAuthentication(headers, security);
-      }
-      let body;
-      if (params.body !== void 0) {
-        const contentType2 = params.contentType || "application/json";
-        headers.set("Content-Type", contentType2);
-        if (contentType2.includes("application/json")) {
-          body = JSON.stringify(params.body);
-        } else if (contentType2.includes("multipart/form-data")) {
-          headers.delete("Content-Type");
-          body = params.body instanceof FormData ? params.body : new FormData();
-          if (!(params.body instanceof FormData)) {
-            Object.entries(params.body).forEach(([key, value]) => {
-              body.append(key, String(value));
-            });
+      const url = new URL(path, baseUrl);
+      if (params.queryParams) {
+        for (const [key, value] of Object.entries(params.queryParams)) {
+          if (Array.isArray(value)) {
+            value.forEach((v) => url.searchParams.append(key, String(v)));
+          } else {
+            url.searchParams.set(key, String(value));
           }
-        } else if (contentType2.includes("application/x-www-form-urlencoded")) {
-          body = new URLSearchParams(
-            Object.entries(params.body).map(([key, value]) => [key, String(value)])
-          ).toString();
+        }
+      }
+      return url.toString();
+    },
+    [defaultConfig.baseUrl, config.defaultConfig?.baseUrl, spec?.servers]
+  );
+  const applyAuthentication = useCallback(
+    (headers, security) => {
+      if (security.apiKey) {
+        if (security.apiKey.in === "header") {
+          headers.set(security.apiKey.name, security.apiKey.value);
+        }
+      }
+      if (security.bearer) {
+        headers.set("Authorization", `Bearer ${security.bearer.token}`);
+      }
+      if (security.basic) {
+        const encoded = btoa(
+          `${security.basic.username}:${security.basic.password}`
+        );
+        headers.set("Authorization", `Basic ${encoded}`);
+      }
+      if (security.oauth2) {
+        headers.set("Authorization", `Bearer ${security.oauth2.token}`);
+      }
+      if (security.custom) {
+        headers.set(security.custom.name, security.custom.value);
+      }
+    },
+    []
+  );
+  const executeRequest = useCallback(
+    async (endpoint, params = {}) => {
+      setLoading(true);
+      setError(null);
+      setResult(null);
+      abortControllerRef.current = new AbortController();
+      let url = "";
+      let init = {};
+      try {
+        url = buildUrl(endpoint, params);
+        const security = { ...defaultSecurity, ...params.security };
+        if (security.apiKey?.in === "query") {
+          const urlObj = new URL(url);
+          urlObj.searchParams.set(security.apiKey.name, security.apiKey.value);
+          url = urlObj.toString();
+        }
+        const headers = new Headers();
+        if (defaultConfig.headers) {
+          Object.entries(defaultConfig.headers).forEach(([key, value]) => {
+            headers.set(key, value);
+          });
+        }
+        if (params.headers) {
+          Object.entries(params.headers).forEach(([key, value]) => {
+            headers.set(key, value);
+          });
+        }
+        if (security) {
+          applyAuthentication(headers, security);
+        }
+        let body;
+        if (params.body !== void 0) {
+          const contentType2 = params.contentType || "application/json";
+          headers.set("Content-Type", contentType2);
+          if (contentType2.includes("application/json")) {
+            body = JSON.stringify(params.body);
+          } else if (contentType2.includes("multipart/form-data")) {
+            headers.delete("Content-Type");
+            body = params.body instanceof FormData ? params.body : new FormData();
+            if (!(params.body instanceof FormData)) {
+              Object.entries(params.body).forEach(([key, value]) => {
+                body.append(key, String(value));
+              });
+            }
+          } else if (contentType2.includes("application/x-www-form-urlencoded")) {
+            body = new URLSearchParams(
+              Object.entries(params.body).map(([key, value]) => [
+                key,
+                String(value)
+              ])
+            ).toString();
+          } else {
+            body = String(params.body);
+          }
+        }
+        init = {
+          method: endpoint.method.toUpperCase(),
+          headers,
+          body,
+          signal: abortControllerRef.current.signal,
+          credentials: defaultConfig.withCredentials ? "include" : "same-origin"
+        };
+        if (interceptors?.onRequest) {
+          const intercepted = await interceptors.onRequest(url, init);
+          url = intercepted.url;
+          init = intercepted.init;
+        }
+        const response = await fetch(url, init);
+        let data;
+        const contentType = response.headers.get("content-type") || "";
+        if (parseJson && contentType.includes("application/json")) {
+          data = await response.json();
+        } else if (contentType.includes("text/")) {
+          data = await response.text();
         } else {
-          body = String(params.body);
+          data = await response.blob();
         }
-      }
-      init = {
-        method: endpoint.method.toUpperCase(),
-        headers,
-        body,
-        signal: abortControllerRef.current.signal,
-        credentials: defaultConfig.withCredentials ? "include" : "same-origin"
-      };
-      if (interceptors?.onRequest) {
-        const intercepted = await interceptors.onRequest(url, init);
-        url = intercepted.url;
-        init = intercepted.init;
-      }
-      const response = await fetch(url, init);
-      let data;
-      const contentType = response.headers.get("content-type") || "";
-      if (parseJson && contentType.includes("application/json")) {
-        data = await response.json();
-      } else if (contentType.includes("text/")) {
-        data = await response.text();
-      } else {
-        data = await response.blob();
-      }
-      if (!response.ok) {
-        const errorMessage = typeof data === "object" && data.message ? data.message : `HTTP ${response.status}: ${response.statusText}`;
-        throw new Error(errorMessage);
-      }
-      if (interceptors?.onResponse) {
-        data = await interceptors.onResponse(response, data);
-      }
-      const executionResult = {
-        data,
-        status: response.status,
-        headers: response.headers,
-        response
-      };
-      setResult(executionResult);
-      return executionResult;
-    } catch (err) {
-      const error2 = err instanceof Error ? err : new Error(String(err));
-      if (error2.name !== "AbortError") {
-        setError(error2.message);
-        if (interceptors?.onError) {
-          await interceptors.onError(error2, url, init);
+        if (!response.ok) {
+          const errorMessage = typeof data === "object" && data.message ? data.message : `HTTP ${response.status}: ${response.statusText}`;
+          throw new Error(errorMessage);
         }
+        if (interceptors?.onResponse) {
+          data = await interceptors.onResponse(response, data);
+        }
+        const executionResult = {
+          data,
+          status: response.status,
+          headers: response.headers,
+          response
+        };
+        setResult(executionResult);
+        return executionResult;
+      } catch (err) {
+        const error2 = err instanceof Error ? err : new Error(String(err));
+        if (error2.name !== "AbortError") {
+          setError(error2.message);
+          if (interceptors?.onError) {
+            await interceptors.onError(error2, url, init);
+          }
+        }
+        throw error2;
+      } finally {
+        setLoading(false);
+        abortControllerRef.current = null;
       }
-      throw error2;
-    } finally {
-      setLoading(false);
-      abortControllerRef.current = null;
-    }
-  }, [
-    buildUrl,
-    defaultSecurity,
-    defaultConfig,
-    applyAuthentication,
-    interceptors,
-    parseJson
-  ]);
-  const executeById = useCallback(async (operationId, params) => {
-    if (!spec?.endpoints) {
-      throw new Error("No API specification loaded");
-    }
-    const endpoint = spec.endpoints.find((ep) => ep.operationId === operationId);
-    if (!endpoint) {
-      throw new Error(`Operation with ID "${operationId}" not found`);
-    }
-    return executeRequest(endpoint, params);
-  }, [spec?.endpoints, executeRequest]);
-  const execute = useCallback(async (endpoint, params) => {
-    return executeRequest(endpoint, params);
-  }, [executeRequest]);
+    },
+    [
+      buildUrl,
+      defaultSecurity,
+      defaultConfig,
+      applyAuthentication,
+      interceptors,
+      parseJson
+    ]
+  );
+  const executeById = useCallback(
+    async (operationId, params) => {
+      if (!spec?.endpoints) {
+        throw new Error("No API specification loaded");
+      }
+      const endpoint = spec.endpoints.find(
+        (ep) => ep.operationId === operationId
+      );
+      if (!endpoint) {
+        throw new Error(`Operation with ID "${operationId}" not found`);
+      }
+      return executeRequest(endpoint, params);
+    },
+    [spec?.endpoints, executeRequest]
+  );
+  const execute = useCallback(
+    async (endpoint, params) => {
+      return executeRequest(endpoint, params);
+    },
+    [executeRequest]
+  );
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -1014,12 +1038,15 @@ function useExecuteOperation(config = {}) {
 }
 function useExecuteEndpoint(endpoint, config = {}) {
   const executor = useExecuteOperation(config);
-  const execute = useCallback(async (params) => {
-    if (!endpoint) {
-      throw new Error("No endpoint provided");
-    }
-    return executor.execute(endpoint, params);
-  }, [endpoint, executor.execute]);
+  const execute = useCallback(
+    async (params) => {
+      if (!endpoint) {
+        throw new Error("No endpoint provided");
+      }
+      return executor.execute(endpoint, params);
+    },
+    [endpoint, executor.execute]
+  );
   return {
     ...executor,
     execute
@@ -1027,548 +1054,603 @@ function useExecuteEndpoint(endpoint, config = {}) {
 }
 function useCodeSnippet() {
   const spec = useApiSpec();
-  const [lastGenerated, setLastGenerated] = useState(null);
-  const availableLanguages = useMemo(() => [
-    { id: "curl", name: "cURL", extension: "sh" },
-    { id: "javascript", name: "JavaScript (fetch)", extension: "js" },
-    { id: "typescript", name: "TypeScript (fetch)", extension: "ts" },
-    { id: "python", name: "Python (requests)", extension: "py" },
-    { id: "node", name: "Node.js (axios)", extension: "js" },
-    { id: "php", name: "PHP (cURL)", extension: "php" },
-    { id: "java", name: "Java (OkHttp)", extension: "java" },
-    { id: "go", name: "Go (net/http)", extension: "go" }
-  ], []);
-  const getBaseUrl = useCallback((serverUrl) => {
-    if (serverUrl) return serverUrl;
-    if (spec?.servers && spec.servers.length > 0) {
-      return spec.servers[0].url;
-    }
-    return "https://api.example.com";
-  }, [spec?.servers]);
-  const buildUrl = useCallback((endpoint, options) => {
-    const baseUrl = getBaseUrl(options.serverUrl);
-    let path = endpoint.path;
-    if (options.parameters?.pathParams) {
-      Object.entries(options.parameters.pathParams).forEach(([key, value]) => {
-        path = path.replace(`{${key}}`, String(value));
-      });
-    }
-    const url = new URL(path, baseUrl);
-    if (options.parameters?.queryParams) {
-      Object.entries(options.parameters.queryParams).forEach(([key, value]) => {
-        if (value !== void 0 && value !== null) {
-          url.searchParams.set(key, String(value));
-        }
-      });
-    }
-    return url.toString();
-  }, [getBaseUrl]);
-  const generateAuthHeaders = useCallback((auth) => {
-    if (!auth) return {};
-    const headers = {};
-    switch (auth.type) {
-      case "apiKey":
-        if (auth.apiKey?.in === "header") {
-          headers[auth.apiKey.name] = auth.apiKey.value;
-        }
-        break;
-      case "bearer":
-        if (auth.bearer?.token) {
-          headers["Authorization"] = `Bearer ${auth.bearer.token}`;
-        }
-        break;
-      case "basic":
-        if (auth.basic?.username && auth.basic?.password) {
-          const credentials = btoa(`${auth.basic.username}:${auth.basic.password}`);
-          headers["Authorization"] = `Basic ${credentials}`;
-        }
-        break;
-      case "oauth2":
-        if (auth.oauth2?.token) {
-          headers["Authorization"] = `Bearer ${auth.oauth2.token}`;
-        }
-        break;
-    }
-    return headers;
-  }, []);
-  const generateCurl = useCallback((endpoint, options) => {
-    const url = buildUrl(endpoint, options);
-    const method = endpoint.method.toUpperCase();
-    const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
-    const customHeaders = options.parameters?.headers || {};
-    const allHeaders = { ...authHeaders, ...customHeaders };
-    let curl = `curl -X ${method}`;
-    Object.entries(allHeaders).forEach(([key, value]) => {
-      curl += ` \\
+  const [lastGenerated, setLastGenerated] = useState(
+    null
+  );
+  const availableLanguages = useMemo(
+    () => [
+      { id: "curl", name: "cURL", extension: "sh" },
+      { id: "javascript", name: "JavaScript (fetch)", extension: "js" },
+      { id: "typescript", name: "TypeScript (fetch)", extension: "ts" },
+      { id: "python", name: "Python (requests)", extension: "py" },
+      { id: "node", name: "Node.js (axios)", extension: "js" },
+      { id: "php", name: "PHP (cURL)", extension: "php" },
+      { id: "java", name: "Java (OkHttp)", extension: "java" },
+      { id: "go", name: "Go (net/http)", extension: "go" }
+    ],
+    []
+  );
+  const getBaseUrl = useCallback(
+    (serverUrl) => {
+      if (serverUrl) return serverUrl;
+      if (spec?.servers && spec.servers.length > 0) {
+        return spec.servers[0].url;
+      }
+      return "https://api.example.com";
+    },
+    [spec?.servers]
+  );
+  const buildUrl = useCallback(
+    (endpoint, options) => {
+      const baseUrl = getBaseUrl(options.serverUrl);
+      let path = endpoint.path;
+      if (options.parameters?.pathParams) {
+        Object.entries(options.parameters.pathParams).forEach(
+          ([key, value]) => {
+            path = path.replace(`{${key}}`, String(value));
+          }
+        );
+      }
+      const url = new URL(path, baseUrl);
+      if (options.parameters?.queryParams) {
+        Object.entries(options.parameters.queryParams).forEach(
+          ([key, value]) => {
+            if (value !== void 0 && value !== null) {
+              url.searchParams.set(key, String(value));
+            }
+          }
+        );
+      }
+      return url.toString();
+    },
+    [getBaseUrl]
+  );
+  const generateAuthHeaders = useCallback(
+    (auth) => {
+      if (!auth) return {};
+      const headers = {};
+      switch (auth.type) {
+        case "apiKey":
+          if (auth.apiKey?.in === "header") {
+            headers[auth.apiKey.name] = auth.apiKey.value;
+          }
+          break;
+        case "bearer":
+          if (auth.bearer?.token) {
+            headers["Authorization"] = `Bearer ${auth.bearer.token}`;
+          }
+          break;
+        case "basic":
+          if (auth.basic?.username && auth.basic?.password) {
+            const credentials = btoa(
+              `${auth.basic.username}:${auth.basic.password}`
+            );
+            headers["Authorization"] = `Basic ${credentials}`;
+          }
+          break;
+        case "oauth2":
+          if (auth.oauth2?.token) {
+            headers["Authorization"] = `Bearer ${auth.oauth2.token}`;
+          }
+          break;
+      }
+      return headers;
+    },
+    []
+  );
+  const generateCurl = useCallback(
+    (endpoint, options) => {
+      const url = buildUrl(endpoint, options);
+      const method = endpoint.method.toUpperCase();
+      const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
+      const customHeaders = options.parameters?.headers || {};
+      const allHeaders = { ...authHeaders, ...customHeaders };
+      let curl = `curl -X ${method}`;
+      Object.entries(allHeaders).forEach(([key, value]) => {
+        curl += ` \\
   -H "${key}: ${value}"`;
-    });
-    if (options.parameters?.body && ["POST", "PUT", "PATCH"].includes(method)) {
-      const bodyStr = typeof options.parameters.body === "string" ? options.parameters.body : JSON.stringify(options.parameters.body, null, 2);
-      curl += ` \\
+      });
+      if (options.parameters?.body && ["POST", "PUT", "PATCH"].includes(method)) {
+        const bodyStr = typeof options.parameters.body === "string" ? options.parameters.body : JSON.stringify(options.parameters.body, null, 2);
+        curl += ` \\
   -H "Content-Type: application/json"`;
-      curl += ` \\
+        curl += ` \\
   -d '${bodyStr}'`;
-    }
-    if (options.includeAuth && options.auth?.type === "apiKey" && options.auth.apiKey?.in === "query") {
-      const separator = url.includes("?") ? "&" : "?";
-      curl += ` \\
+      }
+      if (options.includeAuth && options.auth?.type === "apiKey" && options.auth.apiKey?.in === "query") {
+        const separator = url.includes("?") ? "&" : "?";
+        curl += ` \\
   "${url}${separator}${options.auth.apiKey.name}=${options.auth.apiKey.value}"`;
-    } else {
-      curl += ` \\
+      } else {
+        curl += ` \\
   "${url}"`;
-    }
-    return curl;
-  }, [buildUrl, generateAuthHeaders]);
-  const generateJavaScript = useCallback((endpoint, options, isTypeScript = false) => {
-    const url = buildUrl(endpoint, options);
-    const method = endpoint.method.toUpperCase();
-    const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
-    const customHeaders = options.parameters?.headers || {};
-    const allHeaders = { ...authHeaders, ...customHeaders };
-    const hasBody = options.parameters?.body && ["POST", "PUT", "PATCH"].includes(method);
-    if (hasBody) {
-      allHeaders["Content-Type"] = "application/json";
-    }
-    let code = `// ${endpoint.summary || "API Request"}
+      }
+      return curl;
+    },
+    [buildUrl, generateAuthHeaders]
+  );
+  const generateJavaScript = useCallback(
+    (endpoint, options, isTypeScript = false) => {
+      const url = buildUrl(endpoint, options);
+      const method = endpoint.method.toUpperCase();
+      const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
+      const customHeaders = options.parameters?.headers || {};
+      const allHeaders = { ...authHeaders, ...customHeaders };
+      const hasBody = options.parameters?.body && ["POST", "PUT", "PATCH"].includes(method);
+      if (hasBody) {
+        allHeaders["Content-Type"] = "application/json";
+      }
+      let code = `// ${endpoint.summary || "API Request"}
 `;
-    if (isTypeScript) {
-      code += `interface ApiResponse {
+      if (isTypeScript) {
+        code += `interface ApiResponse {
   // Define your response type here
   [key: string]: any;
 }
 
 `;
-    }
-    code += `const response`;
-    if (isTypeScript) code += `: Response`;
-    code += ` = await fetch('${url}', {
+      }
+      code += `const response`;
+      if (isTypeScript) code += `: Response`;
+      code += ` = await fetch('${url}', {
 `;
-    code += `  method: '${method}',
+      code += `  method: '${method}',
 `;
-    if (Object.keys(allHeaders).length > 0) {
-      code += `  headers: {
+      if (Object.keys(allHeaders).length > 0) {
+        code += `  headers: {
 `;
-      Object.entries(allHeaders).forEach(([key, value]) => {
-        code += `    '${key}': '${value}',
+        Object.entries(allHeaders).forEach(([key, value]) => {
+          code += `    '${key}': '${value}',
 `;
-      });
-      code += `  },
+        });
+        code += `  },
 `;
-    }
-    if (hasBody && options.parameters?.body) {
-      const bodyStr = typeof options.parameters.body === "string" ? `'${options.parameters.body}'` : JSON.stringify(options.parameters.body, null, 4).split("\n").join("\n  ");
-      code += `  body: JSON.stringify(${bodyStr}),
+      }
+      if (hasBody && options.parameters?.body) {
+        const bodyStr = typeof options.parameters.body === "string" ? `'${options.parameters.body}'` : JSON.stringify(options.parameters.body, null, 4).split("\n").join("\n  ");
+        code += `  body: JSON.stringify(${bodyStr}),
 `;
-    }
-    code += `});
+      }
+      code += `});
 
 `;
-    code += `if (!response.ok) {
+      code += `if (!response.ok) {
 `;
-    code += `  throw new Error(\`HTTP error! status: \${response.status}\`);
+      code += `  throw new Error(\`HTTP error! status: \${response.status}\`);
 `;
-    code += `}
+      code += `}
 
 `;
-    code += `const data`;
-    if (isTypeScript) code += `: ApiResponse`;
-    code += ` = await response.json();
+      code += `const data`;
+      if (isTypeScript) code += `: ApiResponse`;
+      code += ` = await response.json();
 `;
-    code += `console.log(data);`;
-    return code;
-  }, [buildUrl, generateAuthHeaders]);
-  const generatePython = useCallback((endpoint, options) => {
-    const url = buildUrl(endpoint, options);
-    const method = endpoint.method.toLowerCase();
-    const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
-    const customHeaders = options.parameters?.headers || {};
-    const allHeaders = { ...authHeaders, ...customHeaders };
-    let code = `import requests
+      code += `console.log(data);`;
+      return code;
+    },
+    [buildUrl, generateAuthHeaders]
+  );
+  const generatePython = useCallback(
+    (endpoint, options) => {
+      const url = buildUrl(endpoint, options);
+      const method = endpoint.method.toLowerCase();
+      const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
+      const customHeaders = options.parameters?.headers || {};
+      const allHeaders = { ...authHeaders, ...customHeaders };
+      let code = `import requests
 import json
 
 `;
-    code += `# ${endpoint.summary || "API Request"}
+      code += `# ${endpoint.summary || "API Request"}
 `;
-    code += `url = "${url}"
+      code += `url = "${url}"
 `;
-    if (Object.keys(allHeaders).length > 0) {
-      code += `headers = {
+      if (Object.keys(allHeaders).length > 0) {
+        code += `headers = {
 `;
-      Object.entries(allHeaders).forEach(([key, value]) => {
-        code += `    "${key}": "${value}",
+        Object.entries(allHeaders).forEach(([key, value]) => {
+          code += `    "${key}": "${value}",
 `;
-      });
-      code += `}
-`;
-    }
-    const hasBody = options.parameters?.body && ["post", "put", "patch"].includes(method);
-    if (hasBody && options.parameters?.body) {
-      const bodyStr = typeof options.parameters.body === "string" ? options.parameters.body : JSON.stringify(options.parameters.body, null, 2);
-      code += `
-data = ${bodyStr.includes("{") ? bodyStr : `"${bodyStr}"`}
-`;
-    }
-    code += `
-response = requests.${method}(url`;
-    if (Object.keys(allHeaders).length > 0) {
-      code += `, headers=headers`;
-    }
-    if (hasBody) {
-      code += `, json=data if isinstance(data, dict) else data`;
-    }
-    code += `)
-
-`;
-    code += `response.raise_for_status()  # Raises an HTTPError for bad responses
-`;
-    code += `result = response.json()
-`;
-    code += `print(result)`;
-    return code;
-  }, [buildUrl, generateAuthHeaders]);
-  const generateNode = useCallback((endpoint, options) => {
-    const url = buildUrl(endpoint, options);
-    const method = endpoint.method.toLowerCase();
-    const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
-    const customHeaders = options.parameters?.headers || {};
-    const allHeaders = { ...authHeaders, ...customHeaders };
-    let code = `const axios = require('axios');
-
-`;
-    code += `// ${endpoint.summary || "API Request"}
-`;
-    code += `const config = {
-`;
-    code += `  method: '${method}',
-`;
-    code += `  url: '${url}',
-`;
-    if (Object.keys(allHeaders).length > 0) {
-      code += `  headers: {
-`;
-      Object.entries(allHeaders).forEach(([key, value]) => {
-        code += `    '${key}': '${value}',
-`;
-      });
-      code += `  },
-`;
-    }
-    const hasBody = options.parameters?.body && ["post", "put", "patch"].includes(method);
-    if (hasBody && options.parameters?.body) {
-      const bodyStr = typeof options.parameters.body === "string" ? `'${options.parameters.body}'` : JSON.stringify(options.parameters.body, null, 2);
-      code += `  data: ${bodyStr},
-`;
-    }
-    code += `};
-
-`;
-    code += `axios(config)
-`;
-    code += `  .then(response => {
-`;
-    code += `    console.log(response.data);
-`;
-    code += `  })
-`;
-    code += `  .catch(error => {
-`;
-    code += `    console.error('Error:', error.response?.data || error.message);
-`;
-    code += `  });`;
-    return code;
-  }, [buildUrl, generateAuthHeaders]);
-  const generatePhp = useCallback((endpoint, options) => {
-    const url = buildUrl(endpoint, options);
-    const method = endpoint.method.toUpperCase();
-    const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
-    const customHeaders = options.parameters?.headers || {};
-    const allHeaders = { ...authHeaders, ...customHeaders };
-    let code = `<?php
-
-`;
-    code += `// ${endpoint.summary || "API Request"}
-`;
-    code += `$url = "${url}";
-`;
-    const hasBody = options.parameters?.body && ["POST", "PUT", "PATCH"].includes(method);
-    code += `$curl = curl_init();
-
-`;
-    code += `curl_setopt_array($curl, [
-`;
-    code += `    CURLOPT_URL => $url,
-`;
-    code += `    CURLOPT_RETURNTRANSFER => true,
-`;
-    code += `    CURLOPT_CUSTOMREQUEST => "${method}",
-`;
-    if (Object.keys(allHeaders).length > 0 || hasBody) {
-      code += `    CURLOPT_HTTPHEADER => [
-`;
-      Object.entries(allHeaders).forEach(([key, value]) => {
-        code += `        "${key}: ${value}",
-`;
-      });
-      if (hasBody) {
-        code += `        "Content-Type: application/json",
+        });
+        code += `}
 `;
       }
-      code += `    ],
+      const hasBody = options.parameters?.body && ["post", "put", "patch"].includes(method);
+      if (hasBody && options.parameters?.body) {
+        const bodyStr = typeof options.parameters.body === "string" ? options.parameters.body : JSON.stringify(options.parameters.body, null, 2);
+        code += `
+data = ${bodyStr.includes("{") ? bodyStr : `"${bodyStr}"`}
 `;
-    }
-    if (hasBody && options.parameters?.body) {
-      const bodyStr = typeof options.parameters.body === "string" ? options.parameters.body : JSON.stringify(options.parameters.body);
-      code += `    CURLOPT_POSTFIELDS => '${bodyStr}',
-`;
-    }
-    code += `]);
+      }
+      code += `
+response = requests.${method}(url`;
+      if (Object.keys(allHeaders).length > 0) {
+        code += `, headers=headers`;
+      }
+      if (hasBody) {
+        code += `, json=data if isinstance(data, dict) else data`;
+      }
+      code += `)
 
 `;
-    code += `$response = curl_exec($curl);
+      code += `response.raise_for_status()  # Raises an HTTPError for bad responses
 `;
-    code += `$httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+      code += `result = response.json()
 `;
-    code += `curl_close($curl);
+      code += `print(result)`;
+      return code;
+    },
+    [buildUrl, generateAuthHeaders]
+  );
+  const generateNode = useCallback(
+    (endpoint, options) => {
+      const url = buildUrl(endpoint, options);
+      const method = endpoint.method.toLowerCase();
+      const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
+      const customHeaders = options.parameters?.headers || {};
+      const allHeaders = { ...authHeaders, ...customHeaders };
+      let code = `const axios = require('axios');
 
 `;
-    code += `if ($httpCode >= 200 && $httpCode < 300) {
+      code += `// ${endpoint.summary || "API Request"}
 `;
-    code += `    $data = json_decode($response, true);
+      code += `const config = {
 `;
-    code += `    print_r($data);
+      code += `  method: '${method}',
 `;
-    code += `} else {
+      code += `  url: '${url}',
 `;
-    code += `    echo "HTTP Error: $httpCode\\n";
+      if (Object.keys(allHeaders).length > 0) {
+        code += `  headers: {
 `;
-    code += `    echo $response;
+        Object.entries(allHeaders).forEach(([key, value]) => {
+          code += `    '${key}': '${value}',
 `;
-    code += `}`;
-    return code;
-  }, [buildUrl, generateAuthHeaders]);
-  const generateJava = useCallback((endpoint, options) => {
-    const url = buildUrl(endpoint, options);
-    const method = endpoint.method.toUpperCase();
-    const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
-    const customHeaders = options.parameters?.headers || {};
-    const allHeaders = { ...authHeaders, ...customHeaders };
-    let code = `import okhttp3.*;
+        });
+        code += `  },
+`;
+      }
+      const hasBody = options.parameters?.body && ["post", "put", "patch"].includes(method);
+      if (hasBody && options.parameters?.body) {
+        const bodyStr = typeof options.parameters.body === "string" ? `'${options.parameters.body}'` : JSON.stringify(options.parameters.body, null, 2);
+        code += `  data: ${bodyStr},
+`;
+      }
+      code += `};
+
+`;
+      code += `axios(config)
+`;
+      code += `  .then(response => {
+`;
+      code += `    console.log(response.data);
+`;
+      code += `  })
+`;
+      code += `  .catch(error => {
+`;
+      code += `    console.error('Error:', error.response?.data || error.message);
+`;
+      code += `  });`;
+      return code;
+    },
+    [buildUrl, generateAuthHeaders]
+  );
+  const generatePhp = useCallback(
+    (endpoint, options) => {
+      const url = buildUrl(endpoint, options);
+      const method = endpoint.method.toUpperCase();
+      const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
+      const customHeaders = options.parameters?.headers || {};
+      const allHeaders = { ...authHeaders, ...customHeaders };
+      let code = `<?php
+
+`;
+      code += `// ${endpoint.summary || "API Request"}
+`;
+      code += `$url = "${url}";
+`;
+      const hasBody = options.parameters?.body && ["POST", "PUT", "PATCH"].includes(method);
+      code += `$curl = curl_init();
+
+`;
+      code += `curl_setopt_array($curl, [
+`;
+      code += `    CURLOPT_URL => $url,
+`;
+      code += `    CURLOPT_RETURNTRANSFER => true,
+`;
+      code += `    CURLOPT_CUSTOMREQUEST => "${method}",
+`;
+      if (Object.keys(allHeaders).length > 0 || hasBody) {
+        code += `    CURLOPT_HTTPHEADER => [
+`;
+        Object.entries(allHeaders).forEach(([key, value]) => {
+          code += `        "${key}: ${value}",
+`;
+        });
+        if (hasBody) {
+          code += `        "Content-Type: application/json",
+`;
+        }
+        code += `    ],
+`;
+      }
+      if (hasBody && options.parameters?.body) {
+        const bodyStr = typeof options.parameters.body === "string" ? options.parameters.body : JSON.stringify(options.parameters.body);
+        code += `    CURLOPT_POSTFIELDS => '${bodyStr}',
+`;
+      }
+      code += `]);
+
+`;
+      code += `$response = curl_exec($curl);
+`;
+      code += `$httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+`;
+      code += `curl_close($curl);
+
+`;
+      code += `if ($httpCode >= 200 && $httpCode < 300) {
+`;
+      code += `    $data = json_decode($response, true);
+`;
+      code += `    print_r($data);
+`;
+      code += `} else {
+`;
+      code += `    echo "HTTP Error: $httpCode\\n";
+`;
+      code += `    echo $response;
+`;
+      code += `}`;
+      return code;
+    },
+    [buildUrl, generateAuthHeaders]
+  );
+  const generateJava = useCallback(
+    (endpoint, options) => {
+      const url = buildUrl(endpoint, options);
+      const method = endpoint.method.toUpperCase();
+      const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
+      const customHeaders = options.parameters?.headers || {};
+      const allHeaders = { ...authHeaders, ...customHeaders };
+      let code = `import okhttp3.*;
 import java.io.IOException;
 
 `;
-    code += `public class ApiClient {
+      code += `public class ApiClient {
 `;
-    code += `    public static void main(String[] args) throws IOException {
+      code += `    public static void main(String[] args) throws IOException {
 `;
-    code += `        OkHttpClient client = new OkHttpClient();
+      code += `        OkHttpClient client = new OkHttpClient();
 
 `;
-    const hasBody = options.parameters?.body && ["POST", "PUT", "PATCH"].includes(method);
-    if (hasBody && options.parameters?.body) {
-      const bodyStr = typeof options.parameters.body === "string" ? options.parameters.body : JSON.stringify(options.parameters.body);
-      code += `        RequestBody body = RequestBody.create(
+      const hasBody = options.parameters?.body && ["POST", "PUT", "PATCH"].includes(method);
+      if (hasBody && options.parameters?.body) {
+        const bodyStr = typeof options.parameters.body === "string" ? options.parameters.body : JSON.stringify(options.parameters.body);
+        code += `        RequestBody body = RequestBody.create(
 `;
-      code += `            "${bodyStr}",
+        code += `            "${bodyStr}",
 `;
-      code += `            MediaType.parse("application/json")
+        code += `            MediaType.parse("application/json")
 `;
-      code += `        );
+        code += `        );
 
 `;
-    }
-    code += `        Request.Builder requestBuilder = new Request.Builder()
+      }
+      code += `        Request.Builder requestBuilder = new Request.Builder()
 `;
-    code += `            .url("${url}")
+      code += `            .url("${url}")
 `;
-    code += `            .method("${method}", ${hasBody ? "body" : "null"});
+      code += `            .method("${method}", ${hasBody ? "body" : "null"});
 
 `;
-    if (Object.keys(allHeaders).length > 0) {
-      Object.entries(allHeaders).forEach(([key, value]) => {
-        code += `        requestBuilder.addHeader("${key}", "${value}");
+      if (Object.keys(allHeaders).length > 0) {
+        Object.entries(allHeaders).forEach(([key, value]) => {
+          code += `        requestBuilder.addHeader("${key}", "${value}");
 `;
-      });
-      code += `
+        });
+        code += `
 `;
-    }
-    code += `        Request request = requestBuilder.build();
+      }
+      code += `        Request request = requestBuilder.build();
 `;
-    code += `        Response response = client.newCall(request).execute();
+      code += `        Response response = client.newCall(request).execute();
 
 `;
-    code += `        if (response.isSuccessful()) {
+      code += `        if (response.isSuccessful()) {
 `;
-    code += `            System.out.println(response.body().string());
+      code += `            System.out.println(response.body().string());
 `;
-    code += `        } else {
+      code += `        } else {
 `;
-    code += `            System.err.println("HTTP Error: " + response.code());
+      code += `            System.err.println("HTTP Error: " + response.code());
 `;
-    code += `            System.err.println(response.body().string());
+      code += `            System.err.println(response.body().string());
 `;
-    code += `        }
+      code += `        }
 `;
-    code += `    }
+      code += `    }
 `;
-    code += `}`;
-    return code;
-  }, [buildUrl, generateAuthHeaders]);
-  const generateGo = useCallback((endpoint, options) => {
-    const url = buildUrl(endpoint, options);
-    const method = endpoint.method.toUpperCase();
-    const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
-    const customHeaders = options.parameters?.headers || {};
-    const allHeaders = { ...authHeaders, ...customHeaders };
-    let code = `package main
+      code += `}`;
+      return code;
+    },
+    [buildUrl, generateAuthHeaders]
+  );
+  const generateGo = useCallback(
+    (endpoint, options) => {
+      const url = buildUrl(endpoint, options);
+      const method = endpoint.method.toUpperCase();
+      const authHeaders = options.includeAuth ? generateAuthHeaders(options.auth) : {};
+      const customHeaders = options.parameters?.headers || {};
+      const allHeaders = { ...authHeaders, ...customHeaders };
+      let code = `package main
 
 `;
-    code += `import (
+      code += `import (
 `;
-    code += `    "bytes"
+      code += `    "bytes"
 `;
-    code += `    "fmt"
+      code += `    "fmt"
 `;
-    code += `    "io"
+      code += `    "io"
 `;
-    code += `    "net/http"
+      code += `    "net/http"
 `;
-    if (options.parameters?.body && typeof options.parameters.body === "object") {
-      code += `    "encoding/json"
+      if (options.parameters?.body && typeof options.parameters.body === "object") {
+        code += `    "encoding/json"
 `;
-    }
-    code += `)
+      }
+      code += `)
 
 `;
-    code += `func main() {
+      code += `func main() {
 `;
-    const hasBody = options.parameters?.body && ["POST", "PUT", "PATCH"].includes(method);
-    if (hasBody && options.parameters?.body) {
-      if (typeof options.parameters.body === "object") {
-        code += `    data := map[string]interface{}${JSON.stringify(options.parameters.body, null, 4).replace(/"/g, "`")}
+      const hasBody = options.parameters?.body && ["POST", "PUT", "PATCH"].includes(method);
+      if (hasBody && options.parameters?.body) {
+        if (typeof options.parameters.body === "object") {
+          code += `    data := map[string]interface{}${JSON.stringify(
+            options.parameters.body,
+            null,
+            4
+          ).replace(/"/g, "`")}
 `;
-        code += `    jsonData, _ := json.Marshal(data)
+          code += `    jsonData, _ := json.Marshal(data)
 `;
-        code += `    req, err := http.NewRequest("${method}", "${url}", bytes.NewBuffer(jsonData))
+          code += `    req, err := http.NewRequest("${method}", "${url}", bytes.NewBuffer(jsonData))
 `;
+        } else {
+          code += `    body := []byte(\`${options.parameters.body}\`)
+`;
+          code += `    req, err := http.NewRequest("${method}", "${url}", bytes.NewBuffer(body))
+`;
+        }
       } else {
-        code += `    body := []byte(\`${options.parameters.body}\`)
-`;
-        code += `    req, err := http.NewRequest("${method}", "${url}", bytes.NewBuffer(body))
+        code += `    req, err := http.NewRequest("${method}", "${url}", nil)
 `;
       }
-    } else {
-      code += `    req, err := http.NewRequest("${method}", "${url}", nil)
+      code += `    if err != nil {
 `;
-    }
-    code += `    if err != nil {
+      code += `        panic(err)
 `;
-    code += `        panic(err)
-`;
-    code += `    }
+      code += `    }
 
 `;
-    if (Object.keys(allHeaders).length > 0 || hasBody) {
-      Object.entries(allHeaders).forEach(([key, value]) => {
-        code += `    req.Header.Set("${key}", "${value}")
+      if (Object.keys(allHeaders).length > 0 || hasBody) {
+        Object.entries(allHeaders).forEach(([key, value]) => {
+          code += `    req.Header.Set("${key}", "${value}")
 `;
-      });
-      if (hasBody) {
-        code += `    req.Header.Set("Content-Type", "application/json")
+        });
+        if (hasBody) {
+          code += `    req.Header.Set("Content-Type", "application/json")
+`;
+        }
+        code += `
 `;
       }
-      code += `
+      code += `    client := &http.Client{}
 `;
-    }
-    code += `    client := &http.Client{}
+      code += `    resp, err := client.Do(req)
 `;
-    code += `    resp, err := client.Do(req)
+      code += `    if err != nil {
 `;
-    code += `    if err != nil {
+      code += `        panic(err)
 `;
-    code += `        panic(err)
+      code += `    }
 `;
-    code += `    }
-`;
-    code += `    defer resp.Body.Close()
+      code += `    defer resp.Body.Close()
 
 `;
-    code += `    body, err := io.ReadAll(resp.Body)
+      code += `    body, err := io.ReadAll(resp.Body)
 `;
-    code += `    if err != nil {
+      code += `    if err != nil {
 `;
-    code += `        panic(err)
+      code += `        panic(err)
 `;
-    code += `    }
+      code += `    }
 
 `;
-    code += `    fmt.Printf("Status: %s\\n", resp.Status)
+      code += `    fmt.Printf("Status: %s\\n", resp.Status)
 `;
-    code += `    fmt.Printf("Response: %s\\n", string(body))
+      code += `    fmt.Printf("Response: %s\\n", string(body))
 `;
-    code += `}`;
-    return code;
-  }, [buildUrl, generateAuthHeaders]);
-  const generateForEndpoint = useCallback((endpoint, options) => {
-    const language = availableLanguages.find((lang) => lang.id === options.language);
-    if (!language) {
-      throw new Error(`Unsupported language: ${options.language}`);
-    }
-    let code;
-    switch (options.language) {
-      case "curl":
-        code = generateCurl(endpoint, options);
-        break;
-      case "javascript":
-        code = generateJavaScript(endpoint, options, false);
-        break;
-      case "typescript":
-        code = generateJavaScript(endpoint, options, true);
-        break;
-      case "python":
-        code = generatePython(endpoint, options);
-        break;
-      case "node":
-        code = generateNode(endpoint, options);
-        break;
-      case "php":
-        code = generatePhp(endpoint, options);
-        break;
-      case "java":
-        code = generateJava(endpoint, options);
-        break;
-      case "go":
-        code = generateGo(endpoint, options);
-        break;
-      default:
-        throw new Error(`Code generation not implemented for language: ${options.language}`);
-    }
-    const result = {
-      code,
-      language,
-      description: `${language.name} code for ${endpoint.method.toUpperCase()} ${endpoint.path}`
-    };
-    setLastGenerated(result);
-    return result;
-  }, [
-    availableLanguages,
-    generateCurl,
-    generateJavaScript,
-    generatePython,
-    generateNode,
-    generatePhp,
-    generateJava,
-    generateGo
-  ]);
-  const generate = useCallback((operationId, options) => {
-    if (!spec?.endpoints) {
-      throw new Error("No API spec available");
-    }
-    const endpoint = findEndpointById(spec.endpoints, operationId);
-    if (!endpoint) {
-      throw new Error(`Operation with ID "${operationId}" not found`);
-    }
-    return generateForEndpoint(endpoint, options);
-  }, [spec, generateForEndpoint]);
+      code += `}`;
+      return code;
+    },
+    [buildUrl, generateAuthHeaders]
+  );
+  const generateForEndpoint = useCallback(
+    (endpoint, options) => {
+      const language = availableLanguages.find(
+        (lang) => lang.id === options.language
+      );
+      if (!language) {
+        throw new Error(`Unsupported language: ${options.language}`);
+      }
+      let code;
+      switch (options.language) {
+        case "curl":
+          code = generateCurl(endpoint, options);
+          break;
+        case "javascript":
+          code = generateJavaScript(endpoint, options, false);
+          break;
+        case "typescript":
+          code = generateJavaScript(endpoint, options, true);
+          break;
+        case "python":
+          code = generatePython(endpoint, options);
+          break;
+        case "node":
+          code = generateNode(endpoint, options);
+          break;
+        case "php":
+          code = generatePhp(endpoint, options);
+          break;
+        case "java":
+          code = generateJava(endpoint, options);
+          break;
+        case "go":
+          code = generateGo(endpoint, options);
+          break;
+        default:
+          throw new Error(
+            `Code generation not implemented for language: ${options.language}`
+          );
+      }
+      const result = {
+        code,
+        language,
+        description: `${language.name} code for ${endpoint.method.toUpperCase()} ${endpoint.path}`
+      };
+      setLastGenerated(result);
+      return result;
+    },
+    [
+      availableLanguages,
+      generateCurl,
+      generateJavaScript,
+      generatePython,
+      generateNode,
+      generatePhp,
+      generateJava,
+      generateGo
+    ]
+  );
+  const generate = useCallback(
+    (operationId, options) => {
+      if (!spec?.endpoints) {
+        throw new Error("No API spec available");
+      }
+      const endpoint = findEndpointById(spec.endpoints, operationId);
+      if (!endpoint) {
+        throw new Error(`Operation with ID "${operationId}" not found`);
+      }
+      return generateForEndpoint(endpoint, options);
+    },
+    [spec, generateForEndpoint]
+  );
   return {
     /** Available programming languages for code generation */
     availableLanguages,
@@ -1584,12 +1666,15 @@ import java.io.IOException;
 }
 function useEndpointCodeSnippet(endpoint) {
   const codeSnippet = useCodeSnippet();
-  const generate = useCallback((options) => {
-    if (!endpoint) {
-      throw new Error("No endpoint provided");
-    }
-    return codeSnippet.generateForEndpoint(endpoint, options);
-  }, [endpoint, codeSnippet]);
+  const generate = useCallback(
+    (options) => {
+      if (!endpoint) {
+        throw new Error("No endpoint provided");
+      }
+      return codeSnippet.generateForEndpoint(endpoint, options);
+    },
+    [endpoint, codeSnippet]
+  );
   return {
     ...codeSnippet,
     /** Generate code snippet for the specific endpoint */
