@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, ReactNode } from "react";
+import { useState, useCallback, useMemo, ReactNode, useEffect } from "react";
 import { ApiContext, ApiContextValue } from "./ApiContext";
 import { ParsedApiSpec, OpenApiSpec } from "../types";
 import {
@@ -7,29 +7,46 @@ import {
   findEndpointByMethodAndPath,
   filterEndpointsByTag,
 } from "../parsing/parseOpenApi";
+import { useApiLoader, ApiLoaderConfig } from "../hooks/useApiLoader";
 
 export interface ApiProviderProps {
   children: ReactNode;
-  spec?: OpenApiSpec | ParsedApiSpec;
+  /** Pre-parsed or raw OpenAPI spec (not used if url is provided) */
+  spec?: OpenApiSpec | string;
+  /** URL to fetch OpenAPI spec from */
+  url?: string;
+  /** Loader configuration for URL fetching */
+  loaderConfig?: Omit<ApiLoaderConfig, "url" | "spec">;
+  /** Error callback */
   onError?: (error: string) => void;
+  /** Loading callback */
+  onLoadingChange?: (loading: boolean) => void;
 }
 
 export function ApiProvider({
   children,
   spec: initialSpec,
+  url,
+  loaderConfig,
   onError,
+  onLoadingChange,
 }: ApiProviderProps) {
-  const [spec, setSpecState] = useState<ParsedApiSpec | null>(() => {
-    if (!initialSpec) return null;
+  // Use the loader if URL is provided, otherwise handle spec directly
+  const loader = useApiLoader(
+    url
+      ? { url, ...loaderConfig }
+      : initialSpec
+      ? { spec: initialSpec, ...loaderConfig }
+      : undefined
+  );
 
-    // Check if it's already parsed
-    if ("endpoints" in initialSpec) {
-      return initialSpec as ParsedApiSpec;
-    }
+  // Use loader state if URL loading, otherwise manage local state
+  const [localSpec, setLocalSpecState] = useState<ParsedApiSpec | null>(() => {
+    if (url || !initialSpec) return null;
 
     // Parse OpenAPI spec
     try {
-      return parseOpenApi(initialSpec as OpenApiSpec);
+      return parseOpenApi(initialSpec);
     } catch (error) {
       const errorMessage =
         error instanceof Error
@@ -40,22 +57,60 @@ export function ApiProvider({
     }
   });
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  const setSpec = useCallback((newSpec: ParsedApiSpec) => {
-    setSpecState(newSpec);
-    setError(null);
-  }, []);
+  const spec = url ? loader.spec : localSpec;
+  const loading = url ? loader.loading : false;
+  const error = url ? loader.error : localError;
+
+  // Notify loading changes
+  useEffect(() => {
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
+
+  // Notify errors
+  useEffect(() => {
+    if (error) {
+      onError?.(error);
+    }
+  }, [error, onError]);
+
+  const setSpec = useCallback(
+    (newSpec: ParsedApiSpec) => {
+      if (url) {
+        // Can't override spec when using URL loading
+        console.warn(
+          "Cannot set spec when using URL loading. Use reload() or loadSpec() instead."
+        );
+      } else {
+        setLocalSpecState(newSpec);
+        setLocalError(null);
+      }
+    },
+    [url]
+  );
 
   const setErrorState = useCallback(
     (newError: string | null) => {
-      setError(newError);
-      if (newError) {
-        onError?.(newError);
+      if (url) {
+        // Can't directly set error for URL loader
+        console.warn("Cannot set error when using URL loading");
+      } else {
+        setLocalError(newError);
       }
     },
-    [onError]
+    [url]
+  );
+
+  const setLoading = useCallback(
+    (_loading: boolean) => {
+      if (url) {
+        // Can't directly set loading for URL loader
+        console.warn("Cannot set loading when using URL loading");
+      }
+      // For local specs, loading is always false after initial parse
+    },
+    [url]
   );
 
   // Computed values

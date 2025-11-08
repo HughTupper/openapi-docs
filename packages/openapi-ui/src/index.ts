@@ -16,6 +16,21 @@ export { useApiSpec } from "./hooks/useApiSpec";
 export { useEndpoints, type UseEndpointsOptions } from "./hooks/useEndpoints";
 export { useEndpoint, type EndpointIdentifier } from "./hooks/useEndpoint";
 export { useSchema, useSchemas } from "./hooks/useSchema";
+export {
+  useApiLoader,
+  clearSpecCache,
+  getCacheStats,
+  type ApiLoaderConfig,
+  type ApiLoaderState,
+} from "./hooks/useApiLoader";
+export {
+  useSearch,
+  useTextSearch,
+  type SearchFilters,
+  type SearchOptions,
+  type SearchResult,
+  type UseSearchState,
+} from "./hooks/useSearch";
 
 // Components
 export { EndpointList } from "./components/EndpointList";

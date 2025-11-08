@@ -9,7 +9,7 @@ import {
 import { mockOpenApiSpec } from "../../test/mockData";
 
 describe("parseOpenApi", () => {
-  it("should parse a valid OpenAPI spec", () => {
+  it("should parse a valid OpenAPI spec object", () => {
     const result = parseOpenApi(mockOpenApiSpec);
 
     expect(result).toBeDefined();
@@ -17,6 +17,50 @@ describe("parseOpenApi", () => {
     expect(result.servers).toEqual(mockOpenApiSpec.servers);
     expect(result.tags).toEqual(mockOpenApiSpec.tags);
     expect(result.endpoints).toHaveLength(5); // 2 users GET/POST, 1 users/{id} GET/DELETE, 1 posts GET
+  });
+
+  it("should parse a valid OpenAPI spec from JSON string", () => {
+    const jsonString = JSON.stringify(mockOpenApiSpec);
+    const result = parseOpenApi(jsonString);
+
+    expect(result).toBeDefined();
+    expect(result.info).toEqual(mockOpenApiSpec.info);
+    expect(result.endpoints).toHaveLength(5);
+  });
+
+  it("should parse a valid OpenAPI spec from YAML string", () => {
+    const yamlString = `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      operationId: getTest
+      summary: Test endpoint
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+`;
+    const result = parseOpenApi(yamlString);
+
+    expect(result).toBeDefined();
+    expect(result.info.title).toBe("Test API");
+    expect(result.info.version).toBe("1.0.0");
+    expect(result.endpoints).toHaveLength(1);
+    expect(result.endpoints[0].operationId).toBe("getTest");
+  });
+
+  it("should throw error for invalid JSON and YAML", () => {
+    const invalidString = "invalid content {[}";
+    expect(() => parseOpenApi(invalidString)).toThrow(
+      /Failed to parse OpenAPI specification/
+    );
   });
 
   it("should normalize endpoints correctly", () => {

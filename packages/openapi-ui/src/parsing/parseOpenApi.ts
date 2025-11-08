@@ -1,3 +1,4 @@
+import * as yaml from "js-yaml";
 import {
   OpenApiSpec,
   NormalizedEndpoint,
@@ -19,21 +20,48 @@ import {
 
 /**
  * Main function to parse and normalize an OpenAPI 3.x specification
+ * Accepts either a parsed OpenAPI object or a string (JSON/YAML)
  */
-export function parseOpenApi(spec: OpenApiSpec): ParsedApiSpec {
-  const endpoints = extractEndpoints(spec);
-  const schemas = extractSchemas(spec);
+export function parseOpenApi(spec: OpenApiSpec | string): ParsedApiSpec {
+  const parsedSpec = typeof spec === "string" ? parseSpecString(spec) : spec;
+  const endpoints = extractEndpoints(parsedSpec);
+  const schemas = extractSchemas(parsedSpec);
 
   return {
-    info: spec.info,
-    servers: spec.servers || [],
+    info: parsedSpec.info,
+    servers: parsedSpec.servers || [],
     endpoints,
     schemas,
-    tags: spec.tags || [],
-    securitySchemes: spec.components?.securitySchemes as
+    tags: parsedSpec.tags || [],
+    securitySchemes: parsedSpec.components?.securitySchemes as
       | Record<string, any>
       | undefined,
   };
+}
+
+/**
+ * Parse an OpenAPI specification from a string (JSON or YAML)
+ */
+function parseSpecString(specString: string): OpenApiSpec {
+  try {
+    // First try JSON parsing
+    return JSON.parse(specString);
+  } catch (jsonError) {
+    try {
+      // If JSON parsing fails, try YAML parsing
+      const parsed = yaml.load(specString);
+      if (typeof parsed === "object" && parsed !== null) {
+        return parsed as OpenApiSpec;
+      }
+      throw new Error("Parsed YAML is not a valid object");
+    } catch (yamlError) {
+      throw new Error(
+        `Failed to parse OpenAPI specification. Invalid JSON: ${
+          (jsonError as Error).message
+        }. Invalid YAML: ${(yamlError as Error).message}`
+      );
+    }
+  }
 }
 
 /**
