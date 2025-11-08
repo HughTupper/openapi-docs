@@ -91,9 +91,9 @@ interface RequestBody {
     required?: boolean;
 }
 interface Responses {
-    [statusCode: string]: Response | Reference;
+    [statusCode: string]: Response$1 | Reference;
 }
-interface Response {
+interface Response$1 {
     description: string;
     headers?: Record<string, Header | Reference>;
     content?: Record<string, MediaType>;
@@ -147,7 +147,7 @@ interface Reference {
 }
 interface Components {
     schemas?: Record<string, Schema | Reference>;
-    responses?: Record<string, Response | Reference>;
+    responses?: Record<string, Response$1 | Reference>;
     parameters?: Record<string, Parameter | Reference>;
     examples?: Record<string, Example | Reference>;
     requestBodies?: Record<string, RequestBody | Reference>;
@@ -344,8 +344,9 @@ interface MethodBadgeProps extends BaseComponentProps {
 
 /**
  * Main function to parse and normalize an OpenAPI 3.x specification
+ * Accepts either a parsed OpenAPI object or a string (JSON/YAML)
  */
-declare function parseOpenApi(spec: OpenApiSpec): ParsedApiSpec;
+declare function parseOpenApi(spec: OpenApiSpec | string): ParsedApiSpec;
 /**
  * Utility function to find an endpoint by ID
  */
@@ -363,12 +364,59 @@ declare function filterEndpointsByTag(endpoints: NormalizedEndpoint[], tag: stri
  */
 declare function groupEndpointsByTag(endpoints: NormalizedEndpoint[]): Record<string, NormalizedEndpoint[]>;
 
+interface ApiLoaderConfig {
+    /** URL to fetch the OpenAPI spec from */
+    url?: string;
+    /** OpenAPI spec object or string */
+    spec?: OpenApiSpec | string;
+    /** Cache duration in milliseconds (default: 5 minutes) */
+    cacheDuration?: number;
+    /** Custom fetch function */
+    fetcher?: (url: string) => Promise<string>;
+    /** Enable automatic retries on failure */
+    retries?: number;
+    /** Retry delay in milliseconds */
+    retryDelay?: number;
+}
+interface ApiLoaderState {
+    /** Parsed API specification */
+    spec: ParsedApiSpec | null;
+    /** Loading state */
+    loading: boolean;
+    /** Error message if any */
+    error: string | null;
+    /** Reload function to refetch from URL */
+    reload: () => void;
+    /** Load a new spec (URL or object) */
+    loadSpec: (config: ApiLoaderConfig) => void;
+}
+declare function useApiLoader(initialConfig?: ApiLoaderConfig): ApiLoaderState;
+/**
+ * Clear all cached specs
+ */
+declare function clearSpecCache(): void;
+/**
+ * Get cache statistics
+ */
+declare function getCacheStats(): {
+    size: number;
+    keys: string[];
+};
+
 interface ApiProviderProps {
     children: ReactNode;
-    spec?: OpenApiSpec | ParsedApiSpec;
+    /** Pre-parsed or raw OpenAPI spec (not used if url is provided) */
+    spec?: OpenApiSpec | string;
+    /** URL to fetch OpenAPI spec from */
+    url?: string;
+    /** Loader configuration for URL fetching */
+    loaderConfig?: Omit<ApiLoaderConfig, "url" | "spec">;
+    /** Error callback */
     onError?: (error: string) => void;
+    /** Loading callback */
+    onLoadingChange?: (loading: boolean) => void;
 }
-declare function ApiProvider({ children, spec: initialSpec, onError, }: ApiProviderProps): react_jsx_runtime.JSX.Element;
+declare function ApiProvider({ children, spec: initialSpec, url, loaderConfig, onError, onLoadingChange, }: ApiProviderProps): react_jsx_runtime.JSX.Element;
 
 interface ApiContextValue {
     spec: ParsedApiSpec | null;
@@ -420,6 +468,287 @@ declare function useSchema(name: string): NormalizedSchema | undefined;
  */
 declare function useSchemas(): Record<string, NormalizedSchema>;
 
+interface SearchFilters {
+    /** Text search query */
+    query?: string;
+    /** Filter by HTTP methods */
+    methods?: HttpMethod[];
+    /** Filter by tags */
+    tags?: string[];
+    /** Filter by deprecated status */
+    deprecated?: boolean;
+    /** Filter by endpoints with parameters */
+    hasParameters?: boolean;
+    /** Filter by endpoints with request body */
+    hasRequestBody?: boolean;
+    /** Filter by response status codes */
+    responseStatusCodes?: string[];
+}
+interface SearchOptions {
+    /** Fields to search in (default: all) */
+    searchFields?: ("summary" | "description" | "operationId" | "path" | "tags" | "parameters" | "responses")[];
+    /** Case sensitive search (default: false) */
+    caseSensitive?: boolean;
+    /** Enable fuzzy search (default: false) */
+    fuzzySearch?: boolean;
+    /** Minimum search query length to trigger search (default: 1) */
+    minQueryLength?: number;
+}
+interface SearchResult {
+    /** The matching endpoint */
+    endpoint: NormalizedEndpoint;
+    /** Relevance score (0-1, higher is more relevant) */
+    score: number;
+    /** Fields that matched the search query */
+    matchedFields: string[];
+    /** Highlighted text snippets */
+    highlights?: Record<string, string>;
+}
+interface UseSearchState {
+    /** Current search filters */
+    filters: SearchFilters;
+    /** Search results */
+    results: SearchResult[];
+    /** Total number of results */
+    totalResults: number;
+    /** Whether search is active */
+    isSearching: boolean;
+    /** Set search filters */
+    setFilters: (filters: SearchFilters) => void;
+    /** Update specific filter */
+    updateFilter: <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => void;
+    /** Clear all filters */
+    clearFilters: () => void;
+    /** Set search query */
+    setQuery: (query: string) => void;
+    /** Get unique values for filter options */
+    getFilterOptions: () => {
+        methods: HttpMethod[];
+        tags: string[];
+        statusCodes: string[];
+    };
+}
+/**
+ * Advanced search hook for filtering and searching OpenAPI endpoints
+ */
+declare function useSearch(options?: SearchOptions): UseSearchState;
+/**
+ * Hook for simple text search (convenience wrapper)
+ */
+declare function useTextSearch(initialQuery?: string, options?: SearchOptions): {
+    query: string;
+    results: SearchResult[];
+    totalResults: number;
+    setQuery: (query: string) => void;
+    clearSearch: () => void;
+};
+
+interface RequestConfig {
+    /** Base URL for the API (overrides servers from spec) */
+    baseUrl?: string;
+    /** HTTP headers to include with the request */
+    headers?: Record<string, string>;
+    /** Request timeout in milliseconds */
+    timeout?: number;
+    /** Whether to include credentials (cookies) */
+    withCredentials?: boolean;
+}
+interface SecurityConfig {
+    /** API key authentication */
+    apiKey?: {
+        name: string;
+        value: string;
+        in: 'query' | 'header' | 'cookie';
+    };
+    /** Bearer token authentication */
+    bearer?: {
+        token: string;
+    };
+    /** Basic authentication */
+    basic?: {
+        username: string;
+        password: string;
+    };
+    /** OAuth2 token */
+    oauth2?: {
+        token: string;
+    };
+    /** Custom authentication header */
+    custom?: {
+        name: string;
+        value: string;
+    };
+}
+interface RequestInterceptor {
+    /** Called before the request is sent */
+    onRequest?: (url: string, init: RequestInit) => Promise<{
+        url: string;
+        init: RequestInit;
+    }> | {
+        url: string;
+        init: RequestInit;
+    };
+    /** Called after a successful response */
+    onResponse?: (response: Response, data: any) => Promise<any> | any;
+    /** Called when an error occurs */
+    onError?: (error: Error, url: string, init: RequestInit) => Promise<void> | void;
+}
+interface ExecuteOperationParams {
+    /** Path parameters */
+    pathParams?: Record<string, string | number>;
+    /** Query parameters */
+    queryParams?: Record<string, string | number | boolean | (string | number | boolean)[]>;
+    /** Request body */
+    body?: any;
+    /** Content type for request body */
+    contentType?: string;
+    /** Security configuration for this request */
+    security?: SecurityConfig;
+    /** Request-specific headers */
+    headers?: Record<string, string>;
+}
+interface ExecuteOperationResult {
+    /** Response data */
+    data: any;
+    /** HTTP status code */
+    status: number;
+    /** Response headers */
+    headers: Headers;
+    /** Full Response object */
+    response: Response;
+}
+interface UseExecuteOperationState {
+    /** Whether a request is currently in progress */
+    loading: boolean;
+    /** Error from the last request */
+    error: string | null;
+    /** Result from the last successful request */
+    result: ExecuteOperationResult | null;
+    /** Execute an operation by ID */
+    executeById: (operationId: string, params?: ExecuteOperationParams) => Promise<ExecuteOperationResult>;
+    /** Execute an operation by endpoint object */
+    execute: (endpoint: NormalizedEndpoint, params?: ExecuteOperationParams) => Promise<ExecuteOperationResult>;
+    /** Clear the current error */
+    clearError: () => void;
+    /** Clear the current result */
+    clearResult: () => void;
+    /** Cancel the current request (if supported) */
+    cancel: () => void;
+}
+interface UseExecuteOperationConfig {
+    /** Default request configuration */
+    defaultConfig?: RequestConfig;
+    /** Default security configuration */
+    defaultSecurity?: SecurityConfig;
+    /** Request interceptors */
+    interceptors?: RequestInterceptor;
+    /** Default timeout in milliseconds */
+    timeout?: number;
+    /** Whether to automatically parse JSON responses */
+    parseJson?: boolean;
+}
+/**
+ * Hook for executing OpenAPI operations
+ */
+declare function useExecuteOperation(config?: UseExecuteOperationConfig): UseExecuteOperationState;
+/**
+ * Hook for executing a specific operation
+ */
+declare function useExecuteEndpoint(endpoint: NormalizedEndpoint | null, config?: UseExecuteOperationConfig): {
+    execute: (params?: ExecuteOperationParams) => Promise<ExecuteOperationResult>;
+    /** Whether a request is currently in progress */
+    loading: boolean;
+    /** Error from the last request */
+    error: string | null;
+    /** Result from the last successful request */
+    result: ExecuteOperationResult | null;
+    /** Execute an operation by ID */
+    executeById: (operationId: string, params?: ExecuteOperationParams) => Promise<ExecuteOperationResult>;
+    /** Clear the current error */
+    clearError: () => void;
+    /** Clear the current result */
+    clearResult: () => void;
+    /** Cancel the current request (if supported) */
+    cancel: () => void;
+};
+
+interface CodeSnippetLanguage {
+    id: string;
+    name: string;
+    extension: string;
+}
+interface CodeSnippetOptions {
+    /** Target language for code generation */
+    language: 'curl' | 'javascript' | 'typescript' | 'python' | 'node' | 'php' | 'java' | 'go';
+    /** Include authentication headers/setup */
+    includeAuth?: boolean;
+    /** Authentication configuration */
+    auth?: {
+        type: 'apiKey' | 'bearer' | 'basic' | 'oauth2';
+        apiKey?: {
+            name: string;
+            value: string;
+            in: 'header' | 'query';
+        };
+        bearer?: {
+            token: string;
+        };
+        basic?: {
+            username: string;
+            password: string;
+        };
+        oauth2?: {
+            token: string;
+        };
+    };
+    /** Request parameters to include */
+    parameters?: {
+        pathParams?: Record<string, any>;
+        queryParams?: Record<string, any>;
+        headers?: Record<string, string>;
+        body?: any;
+    };
+    /** Custom server URL override */
+    serverUrl?: string;
+    /** Pretty format output */
+    formatted?: boolean;
+}
+interface CodeSnippetResult {
+    code: string;
+    language: CodeSnippetLanguage;
+    description?: string;
+}
+/**
+ * Hook for generating code snippets for API operations
+ */
+declare function useCodeSnippet(): {
+    /** Available programming languages for code generation */
+    availableLanguages: CodeSnippetLanguage[];
+    /** Generate code snippet for an operation by ID */
+    generate: (operationId: string, options: CodeSnippetOptions) => CodeSnippetResult;
+    /** Generate code snippet for a specific endpoint */
+    generateForEndpoint: (endpoint: NormalizedEndpoint, options: CodeSnippetOptions) => CodeSnippetResult;
+    /** Last generated code snippet */
+    lastGenerated: CodeSnippetResult | null;
+    /** Clear the last generated result */
+    clearLast: () => void;
+};
+/**
+ * Hook for generating code snippets for a specific endpoint
+ */
+declare function useEndpointCodeSnippet(endpoint: NormalizedEndpoint | null): {
+    /** Generate code snippet for the specific endpoint */
+    generate: (options: CodeSnippetOptions) => CodeSnippetResult;
+    /** Available programming languages for code generation */
+    availableLanguages: CodeSnippetLanguage[];
+    /** Generate code snippet for a specific endpoint */
+    generateForEndpoint: (endpoint: NormalizedEndpoint, options: CodeSnippetOptions) => CodeSnippetResult;
+    /** Last generated code snippet */
+    lastGenerated: CodeSnippetResult | null;
+    /** Clear the last generated result */
+    clearLast: () => void;
+};
+
 /**
  * Headless component for rendering a list of endpoints
  * Supports filtering, grouping, and custom render functions
@@ -438,4 +767,4 @@ declare function EndpointItem({ endpoint, children, renderMethod, renderPath, re
  */
 declare function MethodBadge({ method, children, className, style, ...props }: MethodBadgeProps): react_jsx_runtime.JSX.Element;
 
-export { ApiContext, type ApiContextValue, ApiProvider, type BaseComponentProps, type Callback, type Components, type Contact, type Discriminator, type Encoding, type EndpointIdentifier, EndpointItem, type EndpointItemProps, EndpointList, type EndpointListProps, type Example, type ExternalDocumentation, type Header, type HttpMethod, type Info, type License, type Link, type MediaType, MethodBadge, type MethodBadgeProps, type NormalizedEndpoint, type NormalizedHeader, type NormalizedMediaType, type NormalizedParameter, type NormalizedRequestBody, type NormalizedResponse, type NormalizedSchema, type OAuthFlow, type OAuthFlows, type OpenApiSpec, type Operation, type Parameter, type ParsedApiSpec, type PathItem, type Paths, type Reference, type RequestBody, type Response, type Responses, type Schema, type SecurityRequirement, type SecurityScheme, type Server, type ServerVariable, type Tag, type UseEndpointsOptions, type XML, filterEndpointsByTag, findEndpointById, findEndpointByMethodAndPath, groupEndpointsByTag, parseOpenApi, useApiSpec, useEndpoint, useEndpoints, useSchema, useSchemas };
+export { ApiContext, type ApiContextValue, type ApiLoaderConfig, type ApiLoaderState, ApiProvider, type BaseComponentProps, type Callback, type CodeSnippetLanguage, type CodeSnippetOptions, type CodeSnippetResult, type Components, type Contact, type Discriminator, type Encoding, type EndpointIdentifier, EndpointItem, type EndpointItemProps, EndpointList, type EndpointListProps, type Example, type ExecuteOperationParams, type ExecuteOperationResult, type ExternalDocumentation, type Header, type HttpMethod, type Info, type License, type Link, type MediaType, MethodBadge, type MethodBadgeProps, type NormalizedEndpoint, type NormalizedHeader, type NormalizedMediaType, type NormalizedParameter, type NormalizedRequestBody, type NormalizedResponse, type NormalizedSchema, type OAuthFlow, type OAuthFlows, type OpenApiSpec, type Operation, type Parameter, type ParsedApiSpec, type PathItem, type Paths, type Reference, type RequestBody, type RequestConfig, type RequestInterceptor, type Response$1 as Response, type Responses, type Schema, type SearchFilters, type SearchOptions, type SearchResult, type SecurityConfig, type SecurityRequirement, type SecurityScheme, type Server, type ServerVariable, type Tag, type UseEndpointsOptions, type UseExecuteOperationConfig, type UseExecuteOperationState, type UseSearchState, type XML, clearSpecCache, filterEndpointsByTag, findEndpointById, findEndpointByMethodAndPath, getCacheStats, groupEndpointsByTag, parseOpenApi, useApiLoader, useApiSpec, useCodeSnippet, useEndpoint, useEndpointCodeSnippet, useEndpoints, useExecuteEndpoint, useExecuteOperation, useSchema, useSchemas, useSearch, useTextSearch };

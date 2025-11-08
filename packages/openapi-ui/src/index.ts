@@ -31,6 +31,24 @@ export {
   type SearchResult,
   type UseSearchState,
 } from "./hooks/useSearch";
+export {
+  useExecuteOperation,
+  useExecuteEndpoint,
+  type RequestConfig,
+  type SecurityConfig,
+  type RequestInterceptor,
+  type ExecuteOperationParams,
+  type ExecuteOperationResult,
+  type UseExecuteOperationState,
+  type UseExecuteOperationConfig,
+} from "./hooks/useExecuteOperation";
+export {
+  useCodeSnippet,
+  useEndpointCodeSnippet,
+  type CodeSnippetLanguage,
+  type CodeSnippetOptions,
+  type CodeSnippetResult,
+} from "./hooks/useCodeSnippet";
 
 // Components
 export { EndpointList } from "./components/EndpointList";
