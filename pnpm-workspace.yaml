@@ -1,0 +1,2 @@
+# This project uses npm workspaces instead of pnpm
+# See package.json for workspace configuration

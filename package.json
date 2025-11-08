@@ -1,0 +1,23 @@
+{
+  "name": "openapi-docs",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=packages/openapi-ui",
+    "dev": "npm run dev --workspace=packages/openapi-ui",
+    "type-check": "npm run type-check --workspace=packages/openapi-ui",
+    "clean": "npm run clean --workspace=packages/openapi-ui"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
